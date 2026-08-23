@@ -117,7 +117,7 @@ export function Dashboard({ state, setState, language, days, loading, error, onR
           {today?.timings.map((prayer) => {
             const logged = state.prayerLogs[today.dateKey]?.[prayer.name]?.prayed === true;
             const upcoming = next?.name === prayer.name && next.iso === prayer.iso;
-            const canLog = logged || new Date(prayer.iso).getTime() <= now.getTime();
+            const canLog = today.dateKey <= getTodayKey(now) && (logged || new Date(prayer.iso).getTime() <= now.getTime());
             return (
               <article className={`prayer-row ${upcoming ? "upcoming" : ""} ${logged ? "complete" : ""}`} key={prayer.name}>
                 <div className="prayer-state-icon">

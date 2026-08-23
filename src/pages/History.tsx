@@ -87,7 +87,7 @@ export function History({ state, setState, language, days }: { state: AppState; 
                   const logged = state.prayerLogs[key]?.[prayer]?.prayed === true;
                   const timing = days.find((day) => day.dateKey === key)?.timings.find((item) => item.name === prayer);
                   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-                  const canLog = logged || key < todayKey || Boolean(timing && new Date(timing.iso).getTime() <= now.getTime());
+                  const canLog = key <= todayKey && (logged || key < todayKey || Boolean(timing && new Date(timing.iso).getTime() <= now.getTime()));
                   return (
                     <button
                       key={prayer}

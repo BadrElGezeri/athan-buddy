@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, net, Notification, powerMonitor, prot
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { prayerHasStarted } = require("./prayer-log.cjs");
 const { calculatePrayerStreak } = require("./streak.cjs");
 
 const PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
@@ -496,17 +497,6 @@ function prayerLabel(prayer, language) {
   return language === "ar" ? ar[prayer] : prayer;
 }
 
-function localDateKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function prayerHasStarted(dateKey, prayer, now = Date.now()) {
-  const day = schedule.find((item) => item.dateKey === dateKey);
-  const timing = day?.timings.find((item) => item.name === prayer);
-  if (timing) return new Date(timing.iso).getTime() <= now;
-  return dateKey < localDateKey();
-}
-
 function updatePrayerStreak(now = Date.now()) {
   const next = calculatePrayerStreak({
     prayerLogs: state.prayerLogs,
@@ -536,7 +526,7 @@ function playAlertInRenderer(mode) {
 function togglePrayerLog(dateKey, prayer, forcePrayed = null) {
   const existing = state.prayerLogs[dateKey]?.[prayer]?.prayed === true;
   const prayed = forcePrayed == null ? !existing : forcePrayed;
-  if (prayed && !prayerHasStarted(dateKey, prayer)) throw new Error("Prayer time has not arrived yet");
+  if (prayed && !prayerHasStarted({ schedule, dateKey, prayer })) throw new Error("Prayer time has not arrived yet");
   updatePrayerStreak();
   const previousStreak = state.prayerStreak.current;
   state.prayerLogs[dateKey] = state.prayerLogs[dateKey] || {};
@@ -561,14 +551,12 @@ function showNotification(payload) {
   const language = state.settings.language || "en";
   const markText = language === "ar" ? "تمت الصلاة" : "Mark as prayed";
   const snoozeText = language === "ar" ? "ذكرني لاحقًا" : "Remind me later";
-  const closeText = language === "ar" ? "إغلاق" : "Close";
   const actions = prayer
     ? [
         { type: "button", text: markText },
         { type: "button", text: snoozeText },
-        { type: "button", text: closeText },
       ]
-    : [{ type: "button", text: closeText }];
+    : [];
   const notification = new Notification({
     title,
     body,
@@ -590,11 +578,7 @@ function showNotification(payload) {
           showNotification({ ...payload, mode: "silent" });
         }, state.settings.snoozeMinutes * 60000);
         snoozeTimers.add(timer);
-      } else if (index === 2) {
-        notification.close();
       }
-    } else if (index === 0) {
-      notification.close();
     }
   });
   const release = () => activeNotifications.delete(notification);
