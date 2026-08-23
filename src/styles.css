@@ -1153,6 +1153,8 @@ select {
 }
 
 /* Quran */
+.quran-page-hidden { display: none; }
+
 .error-banner {
   display: flex;
   align-items: center;
@@ -1325,25 +1327,44 @@ select {
   color: var(--gold-strong);
 }
 
-.player-selectors {
+.reciter-picker {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 13px;
   margin-top: 24px;
 }
 
-.player-selectors label:last-child {
-  grid-column: 1 / -1;
+.reciter-search {
+  margin-inline-end: 0;
 }
 
-.player-selectors.compact label:last-child { grid-column: auto; }
+.reciter-select {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.reciter-select > span {
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.reciter-select select { min-height: 42px; }
 
 .now-playing-block {
   margin-top: auto;
   padding-top: 36px;
 }
 
-.now-playing-block > span {
+.now-playing-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.now-playing-label > span:first-child {
   color: var(--gold-strong);
   font-size: 0.67rem;
   font-weight: 800;
@@ -1351,8 +1372,26 @@ select {
   text-transform: uppercase;
 }
 
-[dir="rtl"] .now-playing-block > span {
+[dir="rtl"] .now-playing-label > span:first-child {
   letter-spacing: 0;
+}
+
+.ayah-indicator {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--text-soft);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ayah-indicator.active {
+  border-color: color-mix(in srgb, var(--gold) 42%, var(--line));
+  background: var(--gold-soft);
+  color: var(--gold-strong);
 }
 
 .now-playing-block h2 {
@@ -1626,7 +1665,7 @@ select {
   inset-inline-end: 24px;
   bottom: 24px;
   display: grid;
-  width: min(390px, calc(100vw - 48px));
+  width: min(430px, calc(100vw - 48px));
   grid-template-columns: 42px minmax(0, 1fr);
   gap: 13px;
   overflow: hidden;
@@ -1671,7 +1710,18 @@ select {
   white-space: pre-line;
 }
 
-.update-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.update-manual-note {
+  margin-top: 4px;
+  border-inline-start: 2px solid var(--gold);
+  padding-inline-start: 9px;
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.update-prompt-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.update-prompt-actions .button,
+.update-status-actions .button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
 .update-prompt-progress { position: relative; height: 8px; margin: 10px 0 18px; border-radius: 999px; background: var(--surface-muted); }
 .update-prompt-progress > span { display: block; height: 100%; border-radius: inherit; background: var(--gold); transition: width 180ms ease; }
 .update-prompt-progress small { position: absolute; inset-inline-end: 0; top: 12px; color: var(--text-soft); font-size: 0.66rem; }

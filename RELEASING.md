@@ -1,53 +1,22 @@
-# Releasing Athan Buddy safely
+# Releasing Athan Buddy through GitHub
 
-The updater reads published stable releases from `BadrElGezeri/athan-buddy`. Public releases must be Authenticode-signed. Do not publish the unsigned local QA installer.
+Athan Buddy checks the latest published release in `BadrElGezeri/athan-buddy`. It never downloads or executes an update. When a newer stable version exists, the app shows its plain-text release notes and can open the exact official GitHub release page.
 
-## 1. Create and protect the GitHub repository
+The current installers are unsigned. Windows may show **Unknown Publisher** or a Microsoft Defender SmartScreen warning. Never imply that checksums or attestations replace Authenticode; they provide provenance and integrity evidence for users who choose to verify a download.
 
-1. Create `https://github.com/BadrElGezeri/athan-buddy` as a public repository.
-2. Push this project to the `main` branch.
-3. Protect `main`: block force pushes and deletion, require the `Verify changes / build` check, and require pull requests when practical.
-4. Enable two-factor authentication and register at least two passkeys or security keys on the owner account.
-5. Under **Settings → General → Releases**, enable immutable releases.
-6. Under **Settings → Security**, enable private vulnerability reporting.
-7. Create a GitHub Actions environment named `production` and require manual approval for releases.
+## 1. Protect the repository
 
-## 2. Obtain a Windows code-signing identity
+1. Protect `main`: block force pushes and deletion, require the `Verify changes / build` check, and require pull requests when practical.
+2. Enable two-factor authentication and register at least two passkeys or security keys on the owner account.
+3. Under **Settings → General → Releases**, enable immutable releases.
+4. Under **Settings → Security**, enable private vulnerability reporting.
+5. Create a GitHub Actions environment named `production` and require manual approval for releases.
 
-As an individual developer in Egypt, obtain an Authenticode certificate from a certificate authority in Microsoft's trusted root program that supports identity validation in Egypt. Prefer a non-exportable hardware token or managed signing service.
-
-The certificate subject shown by Windows is authoritative. It must exactly match `WINDOWS_PUBLISHER_NAME`; do not guess it from your display name.
-
-### Recommended: hardware-backed local release
-
-Install the certificate/token provider on a dedicated Windows release machine, then make the public certificate visible in the Windows certificate store. Set:
-
-```powershell
-$env:WINDOWS_PUBLISHER_NAME = "EXACT CERTIFICATE SUBJECT"
-$env:WINDOWS_CERTIFICATE_SUBJECT = "UNIQUE SUBJECT SUBSTRING"
-$env:GH_TOKEN = gh auth token
-```
-
-The private key never enters the repository or GitHub Actions. The token may ask for its PIN while Electron Builder signs the app, helper executables, installer, and uninstaller.
-
-### Alternative: exportable PFX in protected GitHub Actions
-
-Only use this if the certificate provider gives you an exportable PFX and you accept the larger key-exposure risk.
-
-Configure:
-
-- Repository variable `WINDOWS_PUBLISHER_NAME` with the exact certificate subject.
-- Environment secret `WIN_CSC_LINK` containing the base64-encoded PFX or a protected download URL.
-- Environment secret `WIN_CSC_KEY_PASSWORD` containing its password.
-- Manual approval on the `production` environment.
-
-Never commit a certificate, token PIN, PFX, password, or GitHub token.
-
-## 3. Prepare a release
+## 2. Prepare a version
 
 1. Choose a strictly newer semantic version, for example `0.1.1`.
-2. Update `version` in `package.json` and run `pnpm install` so the lockfile records it.
-3. Write short plain-text release notes describing user-visible features and fixes. These notes appear in the Athan Buddy update popup.
+2. Update `version` in `package.json` and run `pnpm install --lockfile-only` so the lockfile records it.
+3. Write concise plain-text release notes. These notes appear in the in-app update card.
 4. Run:
 
 ```powershell
@@ -57,38 +26,44 @@ pnpm build
 
 5. Commit, review, and push the version change to protected `main`.
 
-## 4A. Publish with the hardware-backed local flow
+## 3. Publish the GitHub release
 
-With the environment variables from section 2 set:
-
-```powershell
-pnpm build
-pnpm release:win
-```
-
-This creates a draft GitHub release containing the signed installer, `latest.yml`, and blockmap. Before publishing:
-
-```powershell
-Get-AuthenticodeSignature "release\Athan-Buddy-Setup-0.1.1.exe" | Format-List
-```
-
-Confirm `Status` is `Valid` and the signer subject is the expected publisher. Then publish the draft on GitHub with the reviewed release notes. Once published with immutable releases enabled, its tag and assets cannot be replaced.
-
-## 4B. Publish with the protected GitHub workflow
-
-Open **Actions → Release signed Windows update → Run workflow** from `main`. Enter:
+Open **Actions → Release Windows installer → Run workflow** from `main`. Enter:
 
 - The version already present in `package.json`.
-- Plain-text release notes for the in-app announcement.
+- Plain-text features and fixes for the in-app announcement.
 
-Approve the `production` environment. The workflow refuses to publish when the version, signing identity, or signing credentials are missing. It builds, signs, uploads a draft, generates a provenance attestation, and then publishes it.
+Approve the `production` environment. The workflow:
 
-## 5. Verify the update path
+1. Installs only locked dependencies.
+2. Validates the version and branch.
+3. Builds the hardened NSIS installer.
+4. Creates a SHA-256 checksum file.
+5. Generates a GitHub artifact attestation.
+6. Creates a draft release with all assets attached.
+7. Publishes the completed release.
 
-1. Keep a machine on the previous signed version.
-2. Publish the new stable release.
-3. In Athan Buddy, open **Settings → App updates → Check for updates**.
-4. Confirm the release-note popup shows the correct version and notes.
-5. Download, restart, and verify the installed version changed while prayer logs and settings remained intact.
+The release notes automatically disclose that the installer is unsigned.
 
-Never test the only copy of a production signing credential in an unreviewed workflow. If the certificate or GitHub account may be compromised, stop publishing, revoke the certificate, secure the account, and issue a newly signed release after completing incident review.
+## 4. Verify a release
+
+Download the installer and checksum from the published release, then compare locally:
+
+```powershell
+Get-FileHash -Algorithm SHA256 ".\Athan-Buddy-Setup-0.1.1.exe"
+gh release verify-asset "v0.1.1" ".\Athan-Buddy-Setup-0.1.1.exe" --repo BadrElGezeri/athan-buddy
+```
+
+Keep a previous version installed, publish the newer stable release, and use **Settings → App updates → Check for updates**. Confirm the app displays the correct notes and opens only:
+
+```text
+https://github.com/BadrElGezeri/athan-buddy/releases/tag/vVERSION
+```
+
+The user downloads and runs the installer manually. Athan Buddy does not receive a download URL from GitHub and does not launch release assets.
+
+## Optional future signing
+
+If a publicly trusted Authenticode certificate or accepted SignPath Foundation subscription becomes available, add signing before the draft-release step. Keep the same manual GitHub page flow unless a separately reviewed executable updater is intentionally introduced.
+
+If the GitHub account may be compromised, stop publishing, secure the account, rotate credentials, review recent workflow and release activity, and publish a security notice before resuming releases.

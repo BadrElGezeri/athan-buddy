@@ -11,12 +11,12 @@ contextBridge.exposeInMainWorld("athanBuddy", {
   reverseLocation: (latitude, longitude) => ipcRenderer.invoke("location:reverse", latitude, longitude),
   getReciters: (language) => ipcRenderer.invoke("quran:reciters", language),
   getSurahs: (language) => ipcRenderer.invoke("quran:surahs", language),
+  getAyahTimings: (server, surahId) => ipcRenderer.invoke("quran:ayah-timings", server, surahId),
   setStartup: (enabled) => ipcRenderer.invoke("app:startup", enabled),
   openExternal: (url) => ipcRenderer.invoke("app:open-external", url),
   getUpdateStatus: () => ipcRenderer.invoke("updates:get-status"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
-  downloadUpdate: () => ipcRenderer.invoke("updates:download"),
-  installUpdate: () => ipcRenderer.invoke("updates:install"),
+  openUpdateRelease: () => ipcRenderer.invoke("updates:open-release"),
   testAlert: (mode) => ipcRenderer.invoke("alerts:test", mode),
   onPrayerAlert: (callback) => {
     const listener = (_event, mode) => callback(mode);

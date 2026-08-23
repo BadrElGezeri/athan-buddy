@@ -65,7 +65,7 @@ function makeState({ onboarding = true, language = "en", theme = "light" } = {})
       onboardingComplete: onboarding,
     },
     prayerLogs: { "2026-08-23": { Fajr: { prayed: true, loggedAt: new Date().toISOString() }, Dhuhr: { prayed: true, loggedAt: new Date().toISOString() } } },
-    quran: { reciterId: 1, moshafId: 1, surahId: 1, volume: 0.8, muted: false },
+    quran: { reciterId: 1, moshafId: 1, surahId: 1, volume: 0.8, muted: false, positionSeconds: 0 },
   };
 }
 
@@ -83,20 +83,23 @@ async function openWithState(browser, state, name, destination, scrollMainToBott
       detectIpLocation: async () => current.settings.location,
       reverseLocation: async (latitude, longitude) => ({ type: "coordinates", source: "precise", latitude, longitude, city: "Cairo", country: "Egypt" }),
       getReciters: async () => [
-        { id: 1, name: "Mahmoud Khalil Al-Husary", letter: "M", moshaf: [{ id: 1, name: "Hafs A'n Assem - Murattal", server: "https://server.example/", surah_total: 114, surah_list: "1,2,3" }] },
-        { id: 2, name: "Mishary Rashid Alafasy", letter: "M", moshaf: [{ id: 2, name: "Hafs A'n Assem - Murattal", server: "https://server.example/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 1, name: "Mahmoud Khalil Al-Husary", letter: "M", moshaf: [{ id: 1, name: "Hafs A'n Assem - Murattal", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 2, name: "Mishary Rashid Alafasy", letter: "M", moshaf: [{ id: 2, name: "Hafs A'n Assem - Murattal", server: "https://server10.mp3quran.net/ajm/", surah_total: 114, surah_list: "1,2,3" }] },
       ],
       getSurahs: async (language) => [
         { id: 1, name: language === "ar" ? "الفاتحة" : "Al-Fatihah" },
         { id: 2, name: language === "ar" ? "البقرة" : "Al-Baqarah" },
         { id: 3, name: language === "ar" ? "آل عمران" : "Ali 'Imran" },
       ],
+      getAyahTimings: async () => [
+        { ayah: 1, startTime: 0, endTime: 13000 },
+        { ayah: 2, startTime: 13000, endTime: 20000 },
+      ],
       setStartup: async () => true,
       openExternal: async () => undefined,
       getUpdateStatus: async () => state._updateStatus || ({ phase: "up-to-date", currentVersion: "0.1.0", lastCheckedAt: new Date().toISOString() }),
       checkForUpdates: async () => state._updateStatus || ({ phase: "up-to-date", currentVersion: "0.1.0" }),
-      downloadUpdate: async () => state._updateStatus || ({ phase: "downloading", currentVersion: "0.1.0", percent: 0 }),
-      installUpdate: async () => undefined,
+      openUpdateRelease: async () => undefined,
       testAlert: async () => undefined,
       onPrayerAlert: () => () => undefined,
       onStateChanged: () => () => undefined,
@@ -127,8 +130,65 @@ async function openWithState(browser, state, name, destination, scrollMainToBott
   await page.close();
 }
 
+async function verifyInteractiveBehaviors(browser) {
+  const page = await browser.newPage({ viewport: { width: 1180, height: 780 }, deviceScaleFactor: 1 });
+  const state = makeState({ language: "en", theme: "light" });
+  const futurePrayerDays = prayerDays.map((day) => ({
+    ...day,
+    timings: day.timings.map((timing) => ({ ...timing, iso: timing.iso.replace(/^2026/, "2099") })),
+  }));
+  await page.addInitScript(({ state, prayerDays }) => {
+    let current = state;
+    window.athanBuddy = {
+      getState: async () => current,
+      updateSettings: async (partial) => (current = { ...current, settings: { ...current.settings, ...partial } }),
+      updateQuran: async (partial) => (current = { ...current, quran: { ...current.quran, ...partial } }),
+      togglePrayer: async () => current,
+      getCalculationMethods: async () => [{ id: 5, name: "Egyptian General Authority of Survey" }],
+      fetchPrayerDays: async () => prayerDays,
+      detectIpLocation: async () => current.settings.location,
+      reverseLocation: async (latitude, longitude) => ({ type: "coordinates", source: "precise", latitude, longitude, city: "Cairo", country: "Egypt" }),
+      getReciters: async (language) => [
+        { id: 1, name: language === "ar" ? "محمود خليل الحصري" : "Mahmoud Khalil Al-Husary", letter: "M", moshaf: [{ id: 1, name: "Hafs", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 2, name: language === "ar" ? "مشاري راشد العفاسي" : "Mishary Rashid Alafasy", letter: "M", moshaf: [{ id: 2, name: "Hafs", server: "https://server10.mp3quran.net/ajm/", surah_total: 114, surah_list: "1,2,3" }] },
+      ],
+      getSurahs: async (language) => [{ id: 1, name: language === "ar" ? "الفاتحة" : "Al-Fatihah" }],
+      getAyahTimings: async () => [{ ayah: 1, startTime: 0, endTime: 13000 }],
+      setStartup: async () => true,
+      openExternal: async () => undefined,
+      getUpdateStatus: async () => ({ phase: "up-to-date", currentVersion: "0.1.0" }),
+      checkForUpdates: async () => ({ phase: "up-to-date", currentVersion: "0.1.0" }),
+      openUpdateRelease: async () => undefined,
+      testAlert: async () => undefined,
+      onPrayerAlert: () => () => undefined,
+      onStateChanged: () => () => undefined,
+      onUpdateStatus: () => () => undefined,
+    };
+  }, { state, prayerDays: futurePrayerDays });
+  await page.goto("http://127.0.0.1:5173", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: "Quran" }).click();
+  await page.getByPlaceholder("Search reciters").fill("مشاري");
+  const options = await page.locator(".reciter-select option").allTextContents();
+  if (!options.some((option) => option.includes("Mishary"))) throw new Error("Arabic reciter search did not find the English reciter entry");
+  if (await page.getByText("Recitation", { exact: true }).count()) throw new Error("The removed Recitation selector is still visible");
+  await page.locator(".player-panel audio").evaluate((audio) => { audio.dataset.persistenceCheck = "mounted"; });
+  await page.locator(".nav-item", { hasText: "Today" }).click();
+  const retained = await page.locator(".player-panel audio").evaluate((audio) => audio.dataset.persistenceCheck);
+  if (retained !== "mounted" || !(await page.locator(".quran-page-hidden").count())) throw new Error("Quran player was remounted when leaving the tab");
+  const unloggedPrayerButtons = page.locator(".log-button:not(.logged)");
+  if ((await unloggedPrayerButtons.count()) === 0 || (await unloggedPrayerButtons.evaluateAll((buttons) => buttons.some((button) => !button.disabled)))) {
+    throw new Error("A prayer that has not started can still be logged from Today");
+  }
+  await page.getByRole("button", { name: "Settings" }).click();
+  if (await page.getByLabel("Adhan volume").count()) throw new Error("Adhan volume is visible for the short-sound mode");
+  await page.getByRole("radio", { name: "Full adhan" }).click();
+  if ((await page.getByLabel("Adhan volume").count()) !== 1) throw new Error("Adhan volume did not appear for full adhan mode");
+  await page.close();
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: browserExecutable || undefined });
+  await verifyInteractiveBehaviors(browser);
   await openWithState(browser, makeState({ onboarding: false }), "onboarding-light");
   await openWithState(browser, makeState({ language: "en", theme: "light" }), "dashboard-light-en");
   await openWithState(browser, makeState({ language: "ar", theme: "dark" }), "dashboard-dark-ar");
@@ -140,7 +200,7 @@ async function openWithState(browser, state, name, destination, scrollMainToBott
   await openWithState(browser, makeState({ language: "en", theme: "dark" }), "settings-dark-en", "Settings");
   await openWithState(browser, makeState({ language: "en", theme: "dark" }), "settings-footer-dark-en", "Settings", true);
   const updateState = makeState({ language: "en", theme: "light" });
-  updateState._updateStatus = { phase: "available", currentVersion: "0.1.0", availableVersion: "0.2.0", releaseNotes: "A clearer prayer timeline\nFaster Quran search in English and Arabic\nSecurity improvements" };
+  updateState._updateStatus = { phase: "available", currentVersion: "0.1.0", availableVersion: "0.2.0", releaseUrl: "https://github.com/BadrElGezeri/athan-buddy/releases/tag/v0.2.0", releaseNotes: "A clearer prayer timeline\nFaster Quran search in English and Arabic\nSecurity improvements" };
   await openWithState(browser, updateState, "update-available-light-en");
   await browser.close();
   console.log(output);

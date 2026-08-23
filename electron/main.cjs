@@ -1,11 +1,12 @@
 const { app, BrowserWindow, ipcMain, Menu, net, Notification, powerMonitor, protocol, session, shell, Tray } = require("electron");
-const { autoUpdater } = require("electron-updater");
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
 const PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
 const ADHAN_URL = "https://cdn.aladhan.com/audio/adhans/a9.mp3";
+const RELEASES_API_URL = "https://api.github.com/repos/BadrElGezeri/athan-buddy/releases/latest";
+const RELEASES_PAGE_PREFIX = "https://github.com/BadrElGezeri/athan-buddy/releases/tag/";
 const isDev = !app.isPackaged;
 const startupLaunch = process.argv.includes("--startup");
 
@@ -29,6 +30,7 @@ const activeNotifications = new Set();
 const snoozeTimers = new Set();
 let updateStatus = { phase: "idle", currentVersion: app.getVersion() };
 let updateCheckInterval = null;
+let quranTimingReads = null;
 
 const defaultState = {
   settings: {
@@ -56,6 +58,7 @@ const defaultState = {
     surahId: 1,
     volume: 0.8,
     muted: false,
+    positionSeconds: 0,
   },
 };
 
@@ -240,7 +243,7 @@ function sanitizeSettingsPartial(partial) {
 
 function sanitizeQuranPartial(partial) {
   if (!isPlainObject(partial)) throw new Error("Invalid Quran settings");
-  const allowed = new Set(["reciterId", "moshafId", "surahId", "volume", "muted"]);
+  const allowed = new Set(["reciterId", "moshafId", "surahId", "volume", "muted", "positionSeconds"]);
   for (const key of Object.keys(partial)) if (!allowed.has(key)) throw new Error(`Unknown Quran setting: ${key}`);
   const output = {};
   for (const key of ["reciterId", "moshafId"]) {
@@ -260,6 +263,10 @@ function sanitizeQuranPartial(partial) {
   if (Object.hasOwn(partial, "muted")) {
     if (typeof partial.muted !== "boolean") throw new Error("Invalid mute setting");
     output.muted = partial.muted;
+  }
+  if (Object.hasOwn(partial, "positionSeconds")) {
+    if (!Number.isFinite(partial.positionSeconds) || partial.positionSeconds < 0 || partial.positionSeconds > 86400) throw new Error("Invalid Quran playback position");
+    output.positionSeconds = partial.positionSeconds;
   }
   return output;
 }
@@ -374,7 +381,11 @@ async function fetchJson(url, options = {}) {
         ...(options.headers || {}),
       },
     });
-    if (!response.ok) throw new Error(`Request failed with ${response.status}`);
+    if (!response.ok) {
+      const requestError = new Error(`Request failed with ${response.status}`);
+      requestError.status = response.status;
+      throw requestError;
+    }
     return await response.json();
   } finally {
     clearTimeout(timeout);
@@ -461,6 +472,17 @@ function prayerLabel(prayer, language) {
   return language === "ar" ? ar[prayer] : prayer;
 }
 
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function prayerHasStarted(dateKey, prayer, now = Date.now()) {
+  const day = schedule.find((item) => item.dateKey === dateKey);
+  const timing = day?.timings.find((item) => item.name === prayer);
+  if (timing) return new Date(timing.iso).getTime() <= now;
+  return dateKey < localDateKey();
+}
+
 function playAlertInRenderer(mode) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("alerts:play", mode);
@@ -470,6 +492,7 @@ function playAlertInRenderer(mode) {
 function togglePrayerLog(dateKey, prayer, forcePrayed = null) {
   const existing = state.prayerLogs[dateKey]?.[prayer]?.prayed === true;
   const prayed = forcePrayed == null ? !existing : forcePrayed;
+  if (prayed && !prayerHasStarted(dateKey, prayer)) throw new Error("Prayer time has not arrived yet");
   state.prayerLogs[dateKey] = state.prayerLogs[dateKey] || {};
   if (prayed) {
     state.prayerLogs[dateKey][prayer] = { prayed: true, loggedAt: new Date().toISOString() };
@@ -596,10 +619,7 @@ async function scheduleTick() {
   }
 }
 
-function plainReleaseNotes(info) {
-  const raw = Array.isArray(info?.releaseNotes)
-    ? info.releaseNotes.map((entry) => entry?.note || "").join("\n\n")
-    : info?.releaseNotes || "";
+function plainReleaseNotes(raw) {
   return String(raw)
     .replace(/<[^>]*>/g, " ")
     .replace(/\r/g, "")
@@ -609,49 +629,28 @@ function plainReleaseNotes(info) {
     .slice(0, 2400);
 }
 
-function configureUpdater() {
+function stableVersion(value) {
+  const match = String(value || "").match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return null;
+  const parts = match.slice(1).map(Number);
+  return parts.every(Number.isSafeInteger) ? parts : null;
+}
+
+function isNewerVersion(candidate, current) {
+  const next = stableVersion(candidate);
+  const installed = stableVersion(current);
+  if (!next || !installed) return false;
+  for (let index = 0; index < 3; index += 1) {
+    if (next[index] !== installed[index]) return next[index] > installed[index];
+  }
+  return false;
+}
+
+function configureUpdateChecks() {
   if (!app.isPackaged) {
     setUpdateStatus({ phase: "unavailable" });
     return;
   }
-
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.allowDowngrade = false;
-  autoUpdater.allowPrerelease = false;
-
-  autoUpdater.on("checking-for-update", () => setUpdateStatus({ phase: "checking", error: undefined }));
-  autoUpdater.on("update-available", (info) => setUpdateStatus({
-    phase: "available",
-    availableVersion: info.version,
-    releaseNotes: plainReleaseNotes(info),
-    percent: undefined,
-    error: undefined,
-    lastCheckedAt: new Date().toISOString(),
-  }));
-  autoUpdater.on("update-not-available", () => setUpdateStatus({
-    phase: "up-to-date",
-    availableVersion: undefined,
-    releaseNotes: undefined,
-    percent: undefined,
-    error: undefined,
-    lastCheckedAt: new Date().toISOString(),
-  }));
-  autoUpdater.on("download-progress", (progress) => setUpdateStatus({
-    phase: "downloading",
-    percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
-    error: undefined,
-  }));
-  autoUpdater.on("update-downloaded", (info) => setUpdateStatus({
-    phase: "ready",
-    availableVersion: info.version,
-    percent: 100,
-    error: undefined,
-  }));
-  autoUpdater.on("error", (error) => setUpdateStatus({
-    phase: "error",
-    error: String(error?.message || "Update check failed").replace(/https?:\/\/\S+/g, "the update service").slice(0, 240),
-  }));
 
   setTimeout(() => {
     if (state.settings.onboardingComplete && state.settings.autoCheckUpdates) checkForUpdates();
@@ -663,23 +662,51 @@ function configureUpdater() {
 
 async function checkForUpdates() {
   if (!app.isPackaged) return setUpdateStatus({ phase: "unavailable" });
-  if (["checking", "downloading"].includes(updateStatus.phase)) return updateStatus;
+  if (updateStatus.phase === "checking") return updateStatus;
   setUpdateStatus({ phase: "checking", error: undefined });
   try {
-    await autoUpdater.checkForUpdates();
+    const release = await fetchJson(RELEASES_API_URL, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    const tag = cleanText(release.tag_name, 40);
+    const version = tag?.replace(/^v/, "");
+    if (!tag || !stableVersion(tag) || release.draft === true || release.prerelease === true) {
+      throw new Error("The release channel returned an invalid version");
+    }
+    const checkedAt = new Date().toISOString();
+    if (isNewerVersion(version, app.getVersion())) {
+      return setUpdateStatus({
+        phase: "available",
+        availableVersion: version,
+        releaseNotes: plainReleaseNotes(release.body),
+        releaseUrl: `${RELEASES_PAGE_PREFIX}${encodeURIComponent(tag)}`,
+        error: undefined,
+        lastCheckedAt: checkedAt,
+      });
+    }
+    return setUpdateStatus({
+      phase: "up-to-date",
+      availableVersion: undefined,
+      releaseNotes: undefined,
+      releaseUrl: undefined,
+      error: undefined,
+      lastCheckedAt: checkedAt,
+    });
   } catch (error) {
+    if (error?.status === 404) {
+      return setUpdateStatus({
+        phase: "up-to-date",
+        availableVersion: undefined,
+        releaseNotes: undefined,
+        releaseUrl: undefined,
+        error: undefined,
+        lastCheckedAt: new Date().toISOString(),
+      });
+    }
     setUpdateStatus({ phase: "error", error: String(error?.message || "Update check failed").replace(/https?:\/\/\S+/g, "the update service").slice(0, 240) });
-  }
-  return updateStatus;
-}
-
-async function downloadUpdate() {
-  if (updateStatus.phase !== "available") throw new Error("No update is ready to download");
-  setUpdateStatus({ phase: "downloading", percent: 0, error: undefined });
-  try {
-    await autoUpdater.downloadUpdate();
-  } catch (error) {
-    setUpdateStatus({ phase: "error", error: String(error?.message || "Update download failed").replace(/https?:\/\/\S+/g, "the update service").slice(0, 240) });
   }
   return updateStatus;
 }
@@ -769,6 +796,47 @@ function registerIpc() {
     return response.suwar || [];
   });
 
+  trustedHandle("quran:ayah-timings", async (_event, server, surahId) => {
+    if (typeof server !== "string" || !Number.isInteger(surahId) || surahId < 1 || surahId > 114) throw new Error("Invalid Quran timing request");
+    const target = new URL(server);
+    if (
+      target.protocol !== "https:"
+      || target.port
+      || target.username
+      || target.password
+      || target.search
+      || target.hash
+      || !(target.hostname === "mp3quran.net" || target.hostname.endsWith(".mp3quran.net"))
+    ) throw new Error("Invalid Quran audio server");
+    const normalizedServer = `${target.origin}${target.pathname.replace(/\/+$/, "")}/`;
+
+    if (!quranTimingReads) {
+      quranTimingReads = fetchJson("https://www.mp3quran.net/api/v3/ayat_timing/reads").catch((error) => {
+        quranTimingReads = null;
+        throw error;
+      });
+    }
+    const reads = await quranTimingReads;
+    const read = Array.isArray(reads)
+      ? reads.find((item) => {
+          try {
+            const folder = new URL(item.folder_url);
+            return `${folder.origin}${folder.pathname.replace(/\/+$/, "")}/` === normalizedServer;
+          } catch {
+            return false;
+          }
+        })
+      : null;
+    if (!read || !Number.isInteger(Number(read.id))) return [];
+
+    const response = await fetchJson(`https://www.mp3quran.net/api/v3/ayat_timing?surah=${surahId}&read=${Number(read.id)}`);
+    if (!Array.isArray(response)) return [];
+    return response
+      .filter((item) => Number.isInteger(Number(item.ayah)) && Number(item.ayah) > 0 && Number.isFinite(Number(item.start_time)) && Number.isFinite(Number(item.end_time)))
+      .map((item) => ({ ayah: Number(item.ayah), startTime: Number(item.start_time), endTime: Number(item.end_time) }))
+      .filter((item) => item.startTime >= 0 && item.endTime > item.startTime);
+  });
+
   trustedHandle("app:startup", (_event, enabled) => {
     if (typeof enabled !== "boolean") throw new Error("Invalid startup setting");
     return setStartup(enabled);
@@ -782,10 +850,14 @@ function registerIpc() {
 
   trustedHandle("updates:get-status", () => updateStatus);
   trustedHandle("updates:check", () => checkForUpdates());
-  trustedHandle("updates:download", () => downloadUpdate());
-  trustedHandle("updates:install", () => {
-    if (updateStatus.phase !== "ready") throw new Error("The update has not finished downloading");
-    setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  trustedHandle("updates:open-release", async () => {
+    if (updateStatus.phase !== "available" || !updateStatus.releaseUrl) throw new Error("No update release is available");
+    const target = new URL(updateStatus.releaseUrl);
+    const expectedPrefix = "/BadrElGezeri/athan-buddy/releases/tag/";
+    if (target.protocol !== "https:" || target.hostname !== "github.com" || !target.pathname.startsWith(expectedPrefix) || target.search || target.hash) {
+      throw new Error("The update release link is invalid");
+    }
+    await shell.openExternal(target.toString());
   });
 
   trustedHandle("alerts:test", (_event, mode) => {
@@ -820,7 +892,7 @@ if (!lock) {
     registerIpc();
     createWindow();
     createTray();
-    configureUpdater();
+    configureUpdateChecks();
 
     if (state.settings.onboardingComplete && state.settings.launchAtStartup) setStartup(true);
     refreshSchedule(true);

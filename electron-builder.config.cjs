@@ -1,4 +1,3 @@
-const publisherName = process.env.WINDOWS_PUBLISHER_NAME?.trim();
 const certificateSubjectName = process.env.WINDOWS_CERTIFICATE_SUBJECT?.trim();
 
 module.exports = {
@@ -15,14 +14,6 @@ module.exports = {
     "assets/brand/**/*",
     "package.json",
   ],
-  publish: [
-    {
-      provider: "github",
-      owner: "BadrElGezeri",
-      repo: "athan-buddy",
-      releaseType: "draft",
-    },
-  ],
   electronFuses: {
     runAsNode: false,
     enableCookieEncryption: true,
@@ -37,8 +28,6 @@ module.exports = {
     target: [{ target: "nsis", arch: ["x64"] }],
     icon: "build/icon.ico",
     artifactName: "Athan-Buddy-Setup-${version}.${ext}",
-    verifyUpdateCodeSignature: true,
-    ...(publisherName ? { publisherName: [publisherName] } : {}),
     ...(certificateSubjectName ? {
       signtoolOptions: {
         certificateSubjectName,

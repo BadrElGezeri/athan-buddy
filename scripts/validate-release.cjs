@@ -9,13 +9,6 @@ if (!/^\d+\.\d+\.\d+$/.test(packageJson.version)) {
 }
 
 requireValue("GH_TOKEN");
-requireValue("WINDOWS_PUBLISHER_NAME");
-
-const hardwareBacked = Boolean(process.env.WINDOWS_CERTIFICATE_SUBJECT?.trim());
-const fileBacked = Boolean(process.env.CSC_LINK?.trim() && process.env.CSC_KEY_PASSWORD?.trim());
-if (!hardwareBacked && !fileBacked) {
-  throw new Error("Release blocked: configure a Windows certificate-store subject or both CSC_LINK and CSC_KEY_PASSWORD");
-}
 
 if (process.env.RELEASE_VERSION && process.env.RELEASE_VERSION !== packageJson.version) {
   throw new Error(`Release blocked: requested ${process.env.RELEASE_VERSION}, but package.json is ${packageJson.version}`);

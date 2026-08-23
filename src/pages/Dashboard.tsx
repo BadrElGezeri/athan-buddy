@@ -117,6 +117,7 @@ export function Dashboard({ state, setState, language, days, loading, error, onR
           {today?.timings.map((prayer) => {
             const logged = state.prayerLogs[today.dateKey]?.[prayer.name]?.prayed === true;
             const upcoming = next?.name === prayer.name && next.iso === prayer.iso;
+            const canLog = logged || new Date(prayer.iso).getTime() <= now.getTime();
             return (
               <article className={`prayer-row ${upcoming ? "upcoming" : ""} ${logged ? "complete" : ""}`} key={prayer.name}>
                 <div className="prayer-state-icon">
@@ -127,9 +128,14 @@ export function Dashboard({ state, setState, language, days, loading, error, onR
                   <span>{logged ? t("prayed") : upcoming ? t("nextPrayer") : t("notYet")}</span>
                 </div>
                 <time>{formatTime(prayer.iso, language)}</time>
-                <button className={logged ? "log-button logged" : "log-button"} onClick={() => togglePrayer(prayer.name)}>
+                <button
+                  className={logged ? "log-button logged" : "log-button"}
+                  disabled={!canLog}
+                  title={!canLog ? t("prayerNotStarted") : undefined}
+                  onClick={() => togglePrayer(prayer.name)}
+                >
                   {logged && <Check size={17} weight="bold" />}
-                  {logged ? t("prayed") : t("markPrayed")}
+                  {logged ? t("prayed") : canLog ? t("markPrayed") : t("notYet")}
                 </button>
               </article>
             );

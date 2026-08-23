@@ -8,13 +8,14 @@ Athan Buddy is a bilingual Windows 10/11 prayer companion. It lives in the syste
 - Light and dark themes
 - Windows precise location, IP-based location, and manual city override
 - User-selectable AlAdhan calculation method and Asr school
-- Full adhan, short sound, or silent Windows prayer alerts with adhan volume control
+- Full adhan, short sound, or silent Windows prayer alerts; adhan volume appears only for the full-adhan mode
 - Configurable missed-prayer reminder that can be disabled
 - Native notification actions to mark a prayer as prayed, snooze repeatedly for 5/10/15 minutes, or close
 - Browsable local prayer history with seven-day paging
-- Bilingual English/Arabic surah search, reciter selection, and streaming playback with mute and volume controls
+- Bilingual English/Arabic surah and reciter search, persistent streaming playback, saved listening position, current-ayah timing where supported, and mute/volume controls
+- Prayer logging unlocks only after each prayer time has begun
 - Collapsible sidebar that gives the active page more room
-- Signed-update support with automatic checks, manual download/install, progress, release notes, and a Check for updates button
+- Manual GitHub update checks with release notes and a Check for updates button; the app never downloads or runs an update
 - Minimize-to-tray behavior and Windows startup registration
 - Local-only settings and prayer logs
 
@@ -24,7 +25,7 @@ Use the generated installer:
 
 `release/Athan-Buddy-Setup-0.1.0.exe`
 
-The local QA build is unsigned and must not be used as a public release. Public installers must be Authenticode-signed so Windows and the updater can verify the publisher.
+The installer is currently unsigned. Windows may show **Unknown Publisher** or a SmartScreen warning. Download public builds only from the official GitHub Releases page and verify the published checksum or attestation.
 
 ## Development
 
@@ -54,7 +55,7 @@ Location is sent only when requesting location-dependent data:
 - Precise coordinates or a manually entered city are sent to AlAdhan for prayer-time calculation.
 - Precise coordinates are sent to BigDataCloud's keyless client endpoint to resolve the city and country shown in the app.
 - IP-based detection uses IPWhoIs and stores the returned city and coordinates locally.
-- Quran streaming requests go to MP3Quran's catalog and audio servers.
+- Quran streaming requests go to MP3Quran's catalog and audio servers. Supported recitations also request MP3Quran's per-ayah timing metadata so the player can identify the current ayah.
 
 ## Services
 
@@ -66,7 +67,7 @@ Location is sent only when requesting location-dependent data:
 
 Internet access is currently required for prayer-time refreshes, IP location, full adhan playback, and Quran streaming. Offline schedules and downloads are intentionally outside this release.
 
-Update checks contact the public `BadrElGezeri/athan-buddy` GitHub Releases channel. Downloads never begin automatically, and installation requires confirmation.
+Update checks read only the latest stable release metadata from the public `BadrElGezeri/athan-buddy` GitHub Releases API. When a newer version exists, Athan Buddy displays its release notes and can open the exact official release page. The app never receives a release-asset URL, downloads an installer, or starts an installation.
 
 ## Visual QA
 

@@ -61,7 +61,7 @@ async function waitForAppWindow(context, timeoutMs = 45000) {
     const result = {
       title: await window.title(),
       heading: await window.locator("h1").first().textContent(),
-      bridge: await window.evaluate(() => typeof window.athanBuddy?.getState === "function" && typeof window.athanBuddy?.checkForUpdates === "function"),
+      bridge: await window.evaluate(() => typeof window.athanBuddy?.getState === "function" && typeof window.athanBuddy?.getAyahTimings === "function" && typeof window.athanBuddy?.checkForUpdates === "function" && typeof window.athanBuddy?.openUpdateRelease === "function"),
       screenshotPath,
     };
     console.log(JSON.stringify(result));

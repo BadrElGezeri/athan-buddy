@@ -8,4 +8,4 @@ Include the affected Athan Buddy version, Windows version, reproduction steps, a
 
 ## Supported versions
 
-Security fixes are provided through the latest stable Athan Buddy release. Older releases should update using **Settings → App updates**.
+Security fixes are provided through the latest stable Athan Buddy release. Older releases should use **Settings → App updates** to open the official GitHub release page, then download and install the update manually.

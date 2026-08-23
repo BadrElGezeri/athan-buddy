@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowClockwise, BellSimpleRinging, CheckCircle, DownloadSimple, LinkSimple, Moon, SpeakerHigh, SpeakerSimpleNone, Sun, WarningCircle } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowSquareOut, BellSimpleRinging, CheckCircle, LinkSimple, Moon, SpeakerHigh, SpeakerSimpleNone, Sun, WarningCircle } from "@phosphor-icons/react";
 import type {
   AppState,
   CalculationMethod,
@@ -143,17 +143,19 @@ export function Settings({
             <SecondaryButton className="test-alert" onClick={() => window.athanBuddy.testAlert(state.settings.notificationMode)}>
               {t("test")}
             </SecondaryButton>
-            <label className="volume-setting">
-              <span><strong>{t("adhanVolume")}</strong><small>{Math.round(state.settings.adhanVolume * 100)}%</small></span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={Math.round(state.settings.adhanVolume * 100)}
-                onChange={(event) => update({ adhanVolume: Number(event.target.value) / 100 })}
-                aria-label={t("adhanVolume")}
-              />
-            </label>
+            {state.settings.notificationMode === "adhan" && (
+              <label className="volume-setting">
+                <span><strong>{t("adhanVolume")}</strong><small>{Math.round(state.settings.adhanVolume * 100)}%</small></span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round(state.settings.adhanVolume * 100)}
+                  onChange={(event) => update({ adhanVolume: Number(event.target.value) / 100 })}
+                  aria-label={t("adhanVolume")}
+                />
+              </label>
+            )}
             <div className="setting-row">
               <div><strong>{t("reminder")}</strong><span>{t("reminderHelp")}</span></div>
               <Toggle checked={state.settings.reminderEnabled} onChange={(reminderEnabled) => update({ reminderEnabled })} label={t("reminder")} />
@@ -221,39 +223,28 @@ export function Settings({
               <div className="update-status-copy">
                 {updateStatus.phase === "up-to-date" && <CheckCircle size={21} weight="fill" />}
                 {updateStatus.phase === "error" && <WarningCircle size={21} weight="fill" />}
-                {["checking", "downloading"].includes(updateStatus.phase) && <ArrowClockwise className="spin" size={21} />}
-                {updateStatus.phase === "available" && <DownloadSimple size={21} weight="fill" />}
-                {updateStatus.phase === "ready" && <CheckCircle size={21} weight="fill" />}
+                {updateStatus.phase === "checking" && <ArrowClockwise className="spin" size={21} />}
+                {updateStatus.phase === "available" && <ArrowSquareOut size={21} weight="fill" />}
                 <div>
                   <strong>{
                     updateStatus.phase === "checking" ? t("checkingForUpdates")
                       : updateStatus.phase === "up-to-date" ? t("upToDate")
                         : updateStatus.phase === "available" ? t("versionAvailable", { version: updateStatus.availableVersion ?? "" })
-                          : updateStatus.phase === "downloading" ? t("downloadingPercent", { percent: updateStatus.percent ?? 0 })
-                            : updateStatus.phase === "ready" ? t("updateReady")
-                              : updateStatus.phase === "error" ? t("updateCheckFailed")
-                                : updateStatus.phase === "unavailable" ? t("updatesInInstalledApp")
-                                  : t("readyToCheck")
+                          : updateStatus.phase === "error" ? t("updateCheckFailed")
+                            : updateStatus.phase === "unavailable" ? t("updatesInInstalledApp")
+                              : t("readyToCheck")
                   }</strong>
                   <span>{updateStatus.phase === "error" ? updateStatus.error : t("updateStatusHelp")}</span>
                 </div>
               </div>
               <div className="update-status-actions">
-                {!["downloading", "ready"].includes(updateStatus.phase) && (
-                  <SecondaryButton disabled={updateStatus.phase === "checking"} onClick={() => window.athanBuddy.checkForUpdates()}>
-                    {t("checkForUpdates")}
-                  </SecondaryButton>
-                )}
+                <SecondaryButton disabled={updateStatus.phase === "checking"} onClick={() => window.athanBuddy.checkForUpdates()}>
+                  {t("checkForUpdates")}
+                </SecondaryButton>
                 {updateStatus.phase === "available" && (
-                  <PrimaryButton onClick={() => window.athanBuddy.downloadUpdate()}><DownloadSimple size={17} /> {t("downloadUpdate")}</PrimaryButton>
-                )}
-                {updateStatus.phase === "ready" && (
-                  <PrimaryButton onClick={() => window.athanBuddy.installUpdate()}><ArrowClockwise size={17} /> {t("restartAndInstall")}</PrimaryButton>
+                  <PrimaryButton onClick={() => window.athanBuddy.openUpdateRelease()}><ArrowSquareOut size={17} /> {t("viewReleaseOnGitHub")}</PrimaryButton>
                 )}
               </div>
-              {updateStatus.phase === "downloading" && (
-                <div className="settings-update-progress"><span style={{ width: `${updateStatus.percent ?? 0}%` }} /></div>
-              )}
             </div>
           </div>
         </section>

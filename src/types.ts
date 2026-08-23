@@ -57,6 +57,7 @@ export interface AppState {
     surahId: number;
     volume: number;
     muted: boolean;
+    positionSeconds: number;
   };
 }
 
@@ -104,14 +105,20 @@ export interface Surah {
   makkia?: number;
 }
 
-export type UpdatePhase = "idle" | "checking" | "available" | "downloading" | "ready" | "up-to-date" | "error" | "unavailable";
+export interface AyahTiming {
+  ayah: number;
+  startTime: number;
+  endTime: number;
+}
+
+export type UpdatePhase = "idle" | "checking" | "available" | "up-to-date" | "error" | "unavailable";
 
 export interface UpdateStatus {
   phase: UpdatePhase;
   currentVersion: string;
   availableVersion?: string;
   releaseNotes?: string;
-  percent?: number;
+  releaseUrl?: string;
   error?: string;
   lastCheckedAt?: string;
 }
@@ -127,12 +134,12 @@ export interface AthanBuddyBridge {
   reverseLocation(latitude: number, longitude: number): Promise<CoordinatesLocation>;
   getReciters(language: Language): Promise<Reciter[]>;
   getSurahs(language: Language): Promise<Surah[]>;
+  getAyahTimings(server: string, surahId: number): Promise<AyahTiming[]>;
   setStartup(enabled: boolean): Promise<boolean>;
   openExternal(url: string): Promise<void>;
   getUpdateStatus(): Promise<UpdateStatus>;
   checkForUpdates(): Promise<UpdateStatus>;
-  downloadUpdate(): Promise<UpdateStatus>;
-  installUpdate(): Promise<void>;
+  openUpdateRelease(): Promise<void>;
   testAlert(mode: NotificationMode): Promise<void>;
   onPrayerAlert(callback: (mode: NotificationMode) => void): () => void;
   onStateChanged(callback: (state: AppState) => void): () => void;

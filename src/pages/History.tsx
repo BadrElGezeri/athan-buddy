@@ -1,14 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarBlank, CaretLeft, CaretRight, Check } from "@phosphor-icons/react";
-import type { AppState, Language, PrayerName } from "../types";
+import type { AppState, Language, PrayerDay, PrayerName } from "../types";
 import { createTranslator, prayerNames } from "../i18n";
 import { PRAYERS } from "../lib/prayers";
 
 const PAGE_SIZE = 7;
 
-export function History({ state, setState, language }: { state: AppState; setState(state: AppState): void; language: Language }) {
+export function History({ state, setState, language, days }: { state: AppState; setState(state: AppState): void; language: Language; days: PrayerDay[] }) {
   const t = createTranslator(language);
   const [pageOffset, setPageOffset] = useState(0);
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
   const dates = useMemo(() => Array.from({ length: PAGE_SIZE }, (_, offset) => {
     const date = new Date();
     date.setHours(12, 0, 0, 0);
@@ -76,8 +81,17 @@ export function History({ state, setState, language }: { state: AppState; setSta
               <div className="history-prayers">
                 {PRAYERS.map((prayer) => {
                   const logged = state.prayerLogs[key]?.[prayer]?.prayed === true;
+                  const timing = days.find((day) => day.dateKey === key)?.timings.find((item) => item.name === prayer);
+                  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                  const canLog = logged || key < todayKey || Boolean(timing && new Date(timing.iso).getTime() <= now.getTime());
                   return (
-                    <button key={prayer} className={logged ? "history-prayer logged" : "history-prayer"} onClick={() => toggle(key, prayer)}>
+                    <button
+                      key={prayer}
+                      className={logged ? "history-prayer logged" : "history-prayer"}
+                      disabled={!canLog}
+                      title={!canLog ? t("prayerNotStarted") : undefined}
+                      onClick={() => toggle(key, prayer)}
+                    >
                       <span>{logged && <Check size={15} weight="bold" />}</span>
                       {prayerNames[language][prayer]}
                     </button>

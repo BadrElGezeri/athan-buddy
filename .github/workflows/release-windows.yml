@@ -1,4 +1,4 @@
-name: Release signed Windows update
+name: Release Windows installer
 
 on:
   workflow_dispatch:
@@ -31,9 +31,6 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       RELEASE_VERSION: ${{ inputs.version }}
-      WINDOWS_PUBLISHER_NAME: ${{ vars.WINDOWS_PUBLISHER_NAME }}
-      CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
 
     steps:
       - name: Check out the protected release commit
@@ -55,22 +52,33 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify version, signing identity, and release credentials
+      - name: Verify version and release credentials
         run: node scripts/validate-release.cjs
 
-      - name: Typecheck and build
-        run: pnpm build
-
-      - name: Build, sign, and upload the draft release
+      - name: Build the Windows installer
         run: pnpm release:win
 
-      - name: Attest the signed installer
+      - name: Create SHA-256 checksum
+        shell: pwsh
+        run: |
+          $installer = "release/Athan-Buddy-Setup-$env:RELEASE_VERSION.exe"
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()
+          "$hash *Athan-Buddy-Setup-$env:RELEASE_VERSION.exe" | Set-Content -Encoding ascii "release/Athan-Buddy-Setup-$env:RELEASE_VERSION.exe.sha256"
+
+      - name: Attest the installer
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-path: release/Athan-Buddy-Setup-${{ inputs.version }}.exe
 
-      - name: Publish the immutable-ready release
+      - name: Create the draft release with all assets
         shell: pwsh
         env:
           RELEASE_NOTES: ${{ inputs.release_notes }}
-        run: gh release edit "v$env:RELEASE_VERSION" --draft=false --latest --notes "$env:RELEASE_NOTES"
+        run: |
+          $notice = "Unsigned Windows build: Windows may show an Unknown Publisher or SmartScreen warning. Download only from this official repository and verify the SHA-256 file."
+          $notes = "$notice`n`n$env:RELEASE_NOTES"
+          gh release create "v$env:RELEASE_VERSION" --draft --title "Athan Buddy $env:RELEASE_VERSION" --notes "$notes" "release/Athan-Buddy-Setup-$env:RELEASE_VERSION.exe" "release/Athan-Buddy-Setup-$env:RELEASE_VERSION.exe.sha256"
+
+      - name: Publish the immutable-ready release
+        shell: pwsh
+        run: gh release edit "v$env:RELEASE_VERSION" --draft=false --latest

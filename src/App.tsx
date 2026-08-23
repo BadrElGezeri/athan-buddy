@@ -38,6 +38,7 @@ export default function App() {
   const [prayerError, setPrayerError] = useState<string | null>(null);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle", currentVersion: "" });
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
+  const [quranStarted, setQuranStarted] = useState(false);
   const adhanAudio = useRef<HTMLAudioElement | null>(null);
   const stateRef = useRef<AppState | null>(null);
 
@@ -54,6 +55,10 @@ export default function App() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  useEffect(() => {
+    if (page === "quran") setQuranStarted(true);
+  }, [page]);
 
   useEffect(() => {
     const stop = window.athanBuddy.onPrayerAlert((mode: NotificationMode) => {
@@ -106,8 +111,8 @@ export default function App() {
   const content = useMemo(() => {
     if (!state) return null;
     const common = { state, setState, language };
-    if (page === "history") return <History {...common} />;
-    if (page === "quran") return <Quran {...common} />;
+    if (page === "history") return <History {...common} days={prayerDays} />;
+    if (page === "quran") return null;
     if (page === "settings") {
       return <Settings {...common} updateStatus={updateStatus} onPrayerSettingsChanged={refreshPrayerDays} />;
     }
@@ -138,13 +143,15 @@ export default function App() {
   return (
     <Shell state={state} page={page} onNavigate={setPage}>
       {content}
+      {(quranStarted || page === "quran") && (
+        <Quran state={state} setState={setState} language={language} active={page === "quran"} />
+      )}
       <UpdatePrompt
         status={updateStatus}
         language={language}
         dismissedVersion={dismissedUpdate}
         onLater={() => setDismissedUpdate(updateStatus.availableVersion ?? null)}
-        onDownload={() => window.athanBuddy.downloadUpdate()}
-        onInstall={() => window.athanBuddy.installUpdate()}
+        onOpenRelease={() => window.athanBuddy.openUpdateRelease()}
       />
     </Shell>
   );
