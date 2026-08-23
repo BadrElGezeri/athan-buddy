@@ -12,7 +12,7 @@ Athan Buddy is a bilingual Windows 10/11 prayer companion. It lives in the syste
 - Configurable missed-prayer reminder that can be disabled
 - Native notification actions to mark a prayer as prayed, snooze repeatedly for 5/10/15 minutes, or close
 - Browsable local prayer history with seven-day paging
-- Bilingual English/Arabic surah and reciter search, persistent streaming playback, saved listening position, current-ayah timing where supported, and mute/volume controls
+- Bilingual English/Arabic surah and reciter search, reviewed reciter nationality flags where known, persistent streaming playback, saved listening position, current-ayah timing where supported, and mute/volume controls
 - Prayer logging unlocks only after each prayer time has begun
 - Collapsible sidebar that gives the active page more room
 - Manual GitHub update checks with release notes and a Check for updates button; the app never downloads or runs an update
@@ -62,6 +62,7 @@ Location is sent only when requesting location-dependent data:
 - [AlAdhan Prayer Times API](https://aladhan.com/prayer-times-api)
 - [AlAdhan adhan audio](https://aladhan.com/download-adhans)
 - [MP3Quran API](https://www.mp3quran.net/eng/api)
+- [Reciter nationality source notes](RECITER_DATA.md)
 - [IPWhoIs documentation](https://ipwhois.io/documentation)
 - [BigDataCloud free client-side reverse geocoding](https://www.bigdatacloud.com/docs/free-api)
 

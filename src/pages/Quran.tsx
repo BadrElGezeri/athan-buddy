@@ -3,6 +3,7 @@ import { MagnifyingGlass, Pause, Play, Queue, SkipBack, SkipForward, SpeakerHigh
 import type { AppState, AyahTiming, Language, Moshaf, Reciter, Surah } from "../types";
 import { createTranslator } from "../i18n";
 import { availableSurahs, buildSurahAudioUrl } from "../lib/prayers";
+import { getReciterCountry } from "../lib/reciterCountries";
 
 interface BilingualSurah {
   id: number;
@@ -176,6 +177,7 @@ export function Quran({ state, setState, language, active }: QuranProps) {
   const reciterName = selectedReciter
     ? language === "ar" ? selectedReciter.nameAr : selectedReciter.nameEn
     : t("chooseReciter");
+  const selectedCountry = selectedReciter ? getReciterCountry(selectedReciter.id, language) : null;
 
   return (
     <div className={`page quran-page${active ? "" : " quran-page-hidden"}`} aria-hidden={!active}>
@@ -226,13 +228,25 @@ export function Quran({ state, setState, language, active }: QuranProps) {
             </label>
             <label className="reciter-select">
               <span>{t("reciter")}</span>
-              <select value={selectedReciter?.id ?? ""} onChange={(event) => selectReciter(Number(event.target.value))}>
-                <option value="" disabled>{t("chooseReciter")}</option>
-                {reciterOptions.map((reciter) => (
-                  <option key={reciter.id} value={reciter.id}>{language === "ar" ? reciter.nameAr : reciter.nameEn}</option>
-                ))}
-                {filteredReciters.length === 0 && <option disabled>{t("noReciterResults")}</option>}
-              </select>
+              <span className="reciter-select-control">
+                <select value={selectedReciter?.id ?? ""} onChange={(event) => selectReciter(Number(event.target.value))}>
+                  <option value="" disabled>{t("chooseReciter")}</option>
+                  {reciterOptions.map((reciter) => (
+                    <option key={reciter.id} value={reciter.id}>
+                      {language === "ar" ? reciter.nameAr : reciter.nameEn}
+                    </option>
+                  ))}
+                  {filteredReciters.length === 0 && <option disabled>{t("noReciterResults")}</option>}
+                </select>
+                {selectedCountry && (
+                  <span
+                    className={`fi fi-${selectedCountry.code} reciter-select-flag`}
+                    title={selectedCountry.name}
+                    role="img"
+                    aria-label={selectedCountry.name}
+                  />
+                )}
+              </span>
             </label>
           </div>
 
@@ -246,7 +260,17 @@ export function Quran({ state, setState, language, active }: QuranProps) {
               )}
             </div>
             <h2>{selectedSurah ? (language === "ar" ? selectedSurah.nameAr : selectedSurah.nameEn) : t("surah")}</h2>
-            <p>{reciterName}</p>
+            <p>
+              {reciterName}
+              {selectedCountry && (
+                <span
+                  className={`fi fi-${selectedCountry.code} reciter-country-flag`}
+                  title={selectedCountry.name}
+                  role="img"
+                  aria-label={selectedCountry.name}
+                />
+              )}
+            </p>
           </div>
 
           <div className="audio-progress">

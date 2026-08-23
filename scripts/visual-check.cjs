@@ -83,8 +83,8 @@ async function openWithState(browser, state, name, destination, scrollMainToBott
       detectIpLocation: async () => current.settings.location,
       reverseLocation: async (latitude, longitude) => ({ type: "coordinates", source: "precise", latitude, longitude, city: "Cairo", country: "Egypt" }),
       getReciters: async () => [
-        { id: 1, name: "Mahmoud Khalil Al-Husary", letter: "M", moshaf: [{ id: 1, name: "Hafs A'n Assem - Murattal", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
-        { id: 2, name: "Mishary Rashid Alafasy", letter: "M", moshaf: [{ id: 2, name: "Hafs A'n Assem - Murattal", server: "https://server10.mp3quran.net/ajm/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 1, name: "Ibrahim Al-Akdar", letter: "I", moshaf: [{ id: 1, name: "Hafs A'n Assem - Murattal", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 123, name: "Mishary Alafasi", letter: "M", moshaf: [{ id: 2, name: "Hafs A'n Assem - Murattal", server: "https://server8.mp3quran.net/afs/", surah_total: 114, surah_list: "1,2,3" }] },
       ],
       getSurahs: async (language) => [
         { id: 1, name: language === "ar" ? "الفاتحة" : "Al-Fatihah" },
@@ -149,8 +149,8 @@ async function verifyInteractiveBehaviors(browser) {
       detectIpLocation: async () => current.settings.location,
       reverseLocation: async (latitude, longitude) => ({ type: "coordinates", source: "precise", latitude, longitude, city: "Cairo", country: "Egypt" }),
       getReciters: async (language) => [
-        { id: 1, name: language === "ar" ? "محمود خليل الحصري" : "Mahmoud Khalil Al-Husary", letter: "M", moshaf: [{ id: 1, name: "Hafs", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
-        { id: 2, name: language === "ar" ? "مشاري راشد العفاسي" : "Mishary Rashid Alafasy", letter: "M", moshaf: [{ id: 2, name: "Hafs", server: "https://server10.mp3quran.net/ajm/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 1, name: language === "ar" ? "إبراهيم الأخضر" : "Ibrahim Al-Akdar", letter: "I", moshaf: [{ id: 1, name: "Hafs", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
+        { id: 123, name: language === "ar" ? "مشاري العفاسي" : "Mishary Alafasi", letter: "M", moshaf: [{ id: 2, name: "Hafs", server: "https://server8.mp3quran.net/afs/", surah_total: 114, surah_list: "1,2,3" }] },
       ],
       getSurahs: async (language) => [{ id: 1, name: language === "ar" ? "الفاتحة" : "Al-Fatihah" }],
       getAyahTimings: async () => [{ ayah: 1, startTime: 0, endTime: 13000 }],
@@ -167,6 +167,9 @@ async function verifyInteractiveBehaviors(browser) {
   }, { state, prayerDays: futurePrayerDays });
   await page.goto("http://127.0.0.1:5173", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Quran" }).click();
+  const reciterFlag = page.locator(".reciter-country-flag");
+  if (!(await reciterFlag.getAttribute("class")).includes("fi-sa")) throw new Error("Verified reciter flag was not rendered");
+  if ((await reciterFlag.evaluate((element) => getComputedStyle(element).backgroundImage)) === "none") throw new Error("Reciter flag artwork was not loaded");
   await page.getByPlaceholder("Search reciters").fill("مشاري");
   const options = await page.locator(".reciter-select option").allTextContents();
   if (!options.some((option) => option.includes("Mishary"))) throw new Error("Arabic reciter search did not find the English reciter entry");

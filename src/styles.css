@@ -1352,6 +1352,51 @@ select {
 
 .reciter-select select { min-height: 42px; }
 
+.fi {
+  position: relative;
+  display: inline-block;
+  width: 1.3333em;
+  line-height: 1em;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.fi::before { content: "\00a0"; }
+.fi-ae { background-image: url("../node_modules/flag-icons/flags/4x3/ae.svg"); }
+.fi-eg { background-image: url("../node_modules/flag-icons/flags/4x3/eg.svg"); }
+.fi-id { background-image: url("../node_modules/flag-icons/flags/4x3/id.svg"); }
+.fi-iq { background-image: url("../node_modules/flag-icons/flags/4x3/iq.svg"); }
+.fi-kw { background-image: url("../node_modules/flag-icons/flags/4x3/kw.svg"); }
+.fi-ma { background-image: url("../node_modules/flag-icons/flags/4x3/ma.svg"); }
+.fi-om { background-image: url("../node_modules/flag-icons/flags/4x3/om.svg"); }
+.fi-sa { background-image: url("../node_modules/flag-icons/flags/4x3/sa.svg"); }
+.fi-sd { background-image: url("../node_modules/flag-icons/flags/4x3/sd.svg"); }
+.fi-so { background-image: url("../node_modules/flag-icons/flags/4x3/so.svg"); }
+.fi-ye { background-image: url("../node_modules/flag-icons/flags/4x3/ye.svg"); }
+
+.reciter-select-control {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.reciter-select-control select {
+  width: 100%;
+  padding-inline-end: 58px;
+}
+
+.reciter-select-flag {
+  position: absolute;
+  inset-inline-end: 31px;
+  top: 50%;
+  width: 20px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(16 47 38 / 12%);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
 .now-playing-block {
   margin-top: auto;
   padding-top: 36px;
@@ -1400,9 +1445,18 @@ select {
 }
 
 .now-playing-block p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   margin-top: 5px;
   color: var(--text-soft);
   font-size: 0.8rem;
+}
+
+.reciter-country-flag {
+  width: 19px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(16 47 38 / 12%);
 }
 
 .audio-progress {
