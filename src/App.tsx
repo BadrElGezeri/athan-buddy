@@ -7,6 +7,7 @@ import { History } from "./pages/History";
 import { Quran } from "./pages/Quran";
 import { Settings } from "./pages/Settings";
 import { UpdatePrompt } from "./components/UpdatePrompt";
+import { createTranslator } from "./i18n";
 
 const ADHAN_URL = "https://cdn.aladhan.com/audio/adhans/a9.mp3";
 
@@ -39,8 +40,10 @@ export default function App() {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle", currentVersion: "" });
   const [dismissedUpdate, setDismissedUpdate] = useState<string | null>(null);
   const [quranStarted, setQuranStarted] = useState(false);
+  const [streakCelebration, setStreakCelebration] = useState<number | null>(null);
   const adhanAudio = useRef<HTMLAudioElement | null>(null);
   const stateRef = useRef<AppState | null>(null);
+  const celebrationTimer = useRef<number | null>(null);
 
   useEffect(() => {
     window.athanBuddy.getState().then(setState);
@@ -74,6 +77,18 @@ export default function App() {
     return stop;
   }, []);
 
+  useEffect(() => {
+    const stop = window.athanBuddy.onStreakCelebration(({ count }) => {
+      setStreakCelebration(count);
+      if (celebrationTimer.current != null) window.clearTimeout(celebrationTimer.current);
+      celebrationTimer.current = window.setTimeout(() => setStreakCelebration(null), 4200);
+    });
+    return () => {
+      stop();
+      if (celebrationTimer.current != null) window.clearTimeout(celebrationTimer.current);
+    };
+  }, []);
+
   const prayerConfigurationKey = state
     ? JSON.stringify([
         state.settings.onboardingComplete,
@@ -102,6 +117,7 @@ export default function App() {
 
   const language = state?.settings.language ?? "en";
   const theme = state?.settings.theme ?? "light";
+  const t = createTranslator(language);
   useEffect(() => {
     document.documentElement.lang = language;
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr";
@@ -153,6 +169,15 @@ export default function App() {
         onLater={() => setDismissedUpdate(updateStatus.availableVersion ?? null)}
         onOpenRelease={() => window.athanBuddy.openUpdateRelease()}
       />
+      {streakCelebration != null && (
+        <div className="streak-celebration" role="status" aria-live="polite">
+          <span className="streak-celebration-fire" aria-hidden="true">🔥</span>
+          <span>
+            <strong>{t("streakCongratulations")}</strong>
+            <small>{t("streakKeepGoing", { count: streakCelebration })}</small>
+          </span>
+        </div>
+      )}
     </Shell>
   );
 }

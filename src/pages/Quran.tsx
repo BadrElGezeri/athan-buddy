@@ -3,7 +3,7 @@ import { MagnifyingGlass, Pause, Play, Queue, SkipBack, SkipForward, SpeakerHigh
 import type { AppState, AyahTiming, Language, Moshaf, Reciter, Surah } from "../types";
 import { createTranslator } from "../i18n";
 import { availableSurahs, buildSurahAudioUrl } from "../lib/prayers";
-import { getReciterCountry } from "../lib/reciterCountries";
+import { featuredReciters, getReciterCountry } from "../lib/reciterCountries";
 
 interface BilingualSurah {
   id: number;
@@ -50,17 +50,20 @@ export function Quran({ state, setState, language, active }: QuranProps) {
     setError(null);
     Promise.all([
       window.athanBuddy.getReciters("en"),
-      window.athanBuddy.getReciters("ar"),
       window.athanBuddy.getSurahs("en"),
       window.athanBuddy.getSurahs("ar"),
     ])
-      .then(([englishReciters, arabicReciters, englishSurahs, arabicSurahs]) => {
-        const arabicRecitersById = new Map(arabicReciters.map((reciter: Reciter) => [reciter.id, reciter]));
-        setReciters(englishReciters.map((reciter: Reciter) => ({
-          ...reciter,
-          nameEn: reciter.name,
-          nameAr: arabicRecitersById.get(reciter.id)?.name ?? reciter.name,
-        })));
+      .then(([englishReciters, englishSurahs, arabicSurahs]) => {
+        const englishRecitersById = new Map(englishReciters.map((reciter: Reciter) => [reciter.id, reciter]));
+        setReciters(featuredReciters.flatMap((displayName) => {
+          const reciter = englishRecitersById.get(displayName.id);
+          if (!reciter) return [];
+          return [{
+            ...reciter,
+            nameEn: displayName.nameEn,
+            nameAr: displayName.nameAr,
+          }];
+        }));
         const arabicSurahsById = new Map(arabicSurahs.map((surah: Surah) => [surah.id, surah.name]));
         setSurahs(englishSurahs.map((surah: Surah) => ({
           id: surah.id,

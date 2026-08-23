@@ -51,6 +51,11 @@ export type PrayerLogs = Record<string, Partial<Record<PrayerName, PrayerLogEntr
 export interface AppState {
   settings: Settings;
   prayerLogs: PrayerLogs;
+  prayerStreak: {
+    current: number;
+    best: number;
+    breakAt: string | null;
+  };
   quran: {
     reciterId: number | null;
     moshafId: number | null;
@@ -142,6 +147,7 @@ export interface AthanBuddyBridge {
   openUpdateRelease(): Promise<void>;
   testAlert(mode: NotificationMode): Promise<void>;
   onPrayerAlert(callback: (mode: NotificationMode) => void): () => void;
+  onStreakCelebration(callback: (celebration: { count: number }) => void): () => void;
   onStateChanged(callback: (state: AppState) => void): () => void;
   onUpdateStatus(callback: (status: UpdateStatus) => void): () => void;
 }

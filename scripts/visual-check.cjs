@@ -42,6 +42,17 @@ const prayerDays = [
   },
 ];
 
+const reciterCatalog = [
+  { id: 92, nameEn: "Yasser Al-Dosari", nameAr: "ياسر الدوسري", server: "https://server11.mp3quran.net/yasser/" },
+  { id: 30, nameEn: "Saad Al-Ghamdi", nameAr: "سعد الغامدي", server: "https://server7.mp3quran.net/s_gmd/" },
+  { id: 54, nameEn: "Abdul Rahman Al-Sudais", nameAr: "عبد الرحمن السديس", server: "https://server11.mp3quran.net/sds/" },
+  { id: 74, nameEn: "Ali Al-Hudhaify", nameAr: "علي الحذيفي", server: "https://server9.mp3quran.net/hthfi/" },
+  { id: 217, nameEn: "Bandar Baleelah", nameAr: "بندر بليلة", server: "https://server6.mp3quran.net/balilah/" },
+  { id: 51, nameEn: "Abdul Basit Abdus Samad", nameAr: "عبد الباسط عبد الصمد", server: "https://server7.mp3quran.net/basit/" },
+  { id: 123, nameEn: "Mishary Rashid Alafasy", nameAr: "مشاري راشد العفاسي", server: "https://server8.mp3quran.net/afs/" },
+  { id: 1, nameEn: "Ibrahim Al-Akdar", nameAr: "إبراهيم الأخضر", server: "https://server6.mp3quran.net/akdr/" },
+];
+
 function makeState({ onboarding = true, language = "en", theme = "light" } = {}) {
   return {
     settings: {
@@ -65,13 +76,14 @@ function makeState({ onboarding = true, language = "en", theme = "light" } = {})
       onboardingComplete: onboarding,
     },
     prayerLogs: { "2026-08-23": { Fajr: { prayed: true, loggedAt: new Date().toISOString() }, Dhuhr: { prayed: true, loggedAt: new Date().toISOString() } } },
-    quran: { reciterId: 1, moshafId: 1, surahId: 1, volume: 0.8, muted: false, positionSeconds: 0 },
+    prayerStreak: { current: 2, best: 2, breakAt: "2026-08-22#4" },
+    quran: { reciterId: 92, moshafId: 1, surahId: 1, volume: 0.8, muted: false, positionSeconds: 0 },
   };
 }
 
 async function openWithState(browser, state, name, destination, scrollMainToBottom = false) {
   const page = await browser.newPage({ viewport: { width: 1180, height: 780 }, deviceScaleFactor: 1 });
-  await page.addInitScript(({ state, prayerDays }) => {
+  await page.addInitScript(({ state, prayerDays, reciterCatalog }) => {
     let current = state;
     window.athanBuddy = {
       getState: async () => current,
@@ -82,10 +94,12 @@ async function openWithState(browser, state, name, destination, scrollMainToBott
       fetchPrayerDays: async () => prayerDays,
       detectIpLocation: async () => current.settings.location,
       reverseLocation: async (latitude, longitude) => ({ type: "coordinates", source: "precise", latitude, longitude, city: "Cairo", country: "Egypt" }),
-      getReciters: async () => [
-        { id: 1, name: "Ibrahim Al-Akdar", letter: "I", moshaf: [{ id: 1, name: "Hafs A'n Assem - Murattal", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
-        { id: 123, name: "Mishary Alafasi", letter: "M", moshaf: [{ id: 2, name: "Hafs A'n Assem - Murattal", server: "https://server8.mp3quran.net/afs/", surah_total: 114, surah_list: "1,2,3" }] },
-      ],
+      getReciters: async (language) => reciterCatalog.map((reciter) => ({
+        id: reciter.id,
+        name: language === "ar" ? reciter.nameAr : reciter.nameEn,
+        letter: reciter.nameEn[0],
+        moshaf: [{ id: reciter.id, name: "Hafs A'n Assem - Murattal", server: reciter.server, surah_total: 114, surah_list: "1,2,3" }],
+      })),
       getSurahs: async (language) => [
         { id: 1, name: language === "ar" ? "الفاتحة" : "Al-Fatihah" },
         { id: 2, name: language === "ar" ? "البقرة" : "Al-Baqarah" },
@@ -102,10 +116,14 @@ async function openWithState(browser, state, name, destination, scrollMainToBott
       openUpdateRelease: async () => undefined,
       testAlert: async () => undefined,
       onPrayerAlert: () => () => undefined,
+      onStreakCelebration: (callback) => {
+        if (state._celebration) setTimeout(() => callback(state._celebration), 100);
+        return () => undefined;
+      },
       onStateChanged: () => () => undefined,
       onUpdateStatus: () => () => undefined,
     };
-  }, { state, prayerDays });
+  }, { state, prayerDays, reciterCatalog });
   await page.goto("http://127.0.0.1:5173", { waitUntil: "networkidle" });
   if (destination) {
     await page.getByRole("button", { name: destination }).click();
@@ -137,7 +155,7 @@ async function verifyInteractiveBehaviors(browser) {
     ...day,
     timings: day.timings.map((timing) => ({ ...timing, iso: timing.iso.replace(/^2026/, "2099") })),
   }));
-  await page.addInitScript(({ state, prayerDays }) => {
+  await page.addInitScript(({ state, prayerDays, reciterCatalog }) => {
     let current = state;
     window.athanBuddy = {
       getState: async () => current,
@@ -148,10 +166,12 @@ async function verifyInteractiveBehaviors(browser) {
       fetchPrayerDays: async () => prayerDays,
       detectIpLocation: async () => current.settings.location,
       reverseLocation: async (latitude, longitude) => ({ type: "coordinates", source: "precise", latitude, longitude, city: "Cairo", country: "Egypt" }),
-      getReciters: async (language) => [
-        { id: 1, name: language === "ar" ? "إبراهيم الأخضر" : "Ibrahim Al-Akdar", letter: "I", moshaf: [{ id: 1, name: "Hafs", server: "https://server6.mp3quran.net/akdr/", surah_total: 114, surah_list: "1,2,3" }] },
-        { id: 123, name: language === "ar" ? "مشاري العفاسي" : "Mishary Alafasi", letter: "M", moshaf: [{ id: 2, name: "Hafs", server: "https://server8.mp3quran.net/afs/", surah_total: 114, surah_list: "1,2,3" }] },
-      ],
+      getReciters: async (language) => reciterCatalog.map((reciter) => ({
+        id: reciter.id,
+        name: language === "ar" ? reciter.nameAr : reciter.nameEn,
+        letter: reciter.nameEn[0],
+        moshaf: [{ id: reciter.id, name: "Hafs", server: reciter.server, surah_total: 114, surah_list: "1,2,3" }],
+      })),
       getSurahs: async (language) => [{ id: 1, name: language === "ar" ? "الفاتحة" : "Al-Fatihah" }],
       getAyahTimings: async () => [{ ayah: 1, startTime: 0, endTime: 13000 }],
       setStartup: async () => true,
@@ -161,12 +181,15 @@ async function verifyInteractiveBehaviors(browser) {
       openUpdateRelease: async () => undefined,
       testAlert: async () => undefined,
       onPrayerAlert: () => () => undefined,
+      onStreakCelebration: () => () => undefined,
       onStateChanged: () => () => undefined,
       onUpdateStatus: () => () => undefined,
     };
-  }, { state, prayerDays: futurePrayerDays });
+  }, { state, prayerDays: futurePrayerDays, reciterCatalog });
   await page.goto("http://127.0.0.1:5173", { waitUntil: "networkidle" });
   await page.getByRole("button", { name: "Quran" }).click();
+  const initialReciterOptions = await page.locator(".reciter-select option:not([disabled])").allTextContents();
+  if (initialReciterOptions.length !== 7 || initialReciterOptions.some((option) => option.includes("Ibrahim"))) throw new Error("The Quran picker was not restricted to the seven featured reciters");
   const reciterFlag = page.locator(".reciter-country-flag");
   if (!(await reciterFlag.getAttribute("class")).includes("fi-sa")) throw new Error("Verified reciter flag was not rendered");
   if ((await reciterFlag.evaluate((element) => getComputedStyle(element).backgroundImage)) === "none") throw new Error("Reciter flag artwork was not loaded");
@@ -182,6 +205,8 @@ async function verifyInteractiveBehaviors(browser) {
   if ((await unloggedPrayerButtons.count()) === 0 || (await unloggedPrayerButtons.evaluateAll((buttons) => buttons.some((button) => !button.disabled)))) {
     throw new Error("A prayer that has not started can still be logged from Today");
   }
+  await page.getByRole("button", { name: "Prayer log" }).click();
+  if (!(await page.locator(".prayer-streak").textContent()).includes("2")) throw new Error("The individual-prayer streak was not shown in the Prayer Log");
   await page.getByRole("button", { name: "Settings" }).click();
   if (await page.getByLabel("Adhan volume").count()) throw new Error("Adhan volume is visible for the short-sound mode");
   await page.getByRole("radio", { name: "Full adhan" }).click();
@@ -205,6 +230,12 @@ async function verifyInteractiveBehaviors(browser) {
   const updateState = makeState({ language: "en", theme: "light" });
   updateState._updateStatus = { phase: "available", currentVersion: "0.1.0", availableVersion: "0.2.0", releaseUrl: "https://github.com/BadrElGezeri/athan-buddy/releases/tag/v0.2.0", releaseNotes: "A clearer prayer timeline\nFaster Quran search in English and Arabic\nSecurity improvements" };
   await openWithState(browser, updateState, "update-available-light-en");
+  const celebrationState = makeState({ language: "en", theme: "light" });
+  celebrationState._celebration = { count: 3 };
+  await openWithState(browser, celebrationState, "streak-celebration-light-en", "Prayer log");
+  const celebrationArabicState = makeState({ language: "ar", theme: "dark" });
+  celebrationArabicState._celebration = { count: 3 };
+  await openWithState(browser, celebrationArabicState, "streak-celebration-dark-ar", "سجل الصلوات");
   await browser.close();
   console.log(output);
 })().catch((error) => {

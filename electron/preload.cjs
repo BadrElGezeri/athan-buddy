@@ -23,6 +23,11 @@ contextBridge.exposeInMainWorld("athanBuddy", {
     ipcRenderer.on("alerts:play", listener);
     return () => ipcRenderer.removeListener("alerts:play", listener);
   },
+  onStreakCelebration: (callback) => {
+    const listener = (_event, celebration) => callback(celebration);
+    ipcRenderer.on("streak:celebrate", listener);
+    return () => ipcRenderer.removeListener("streak:celebrate", listener);
+  },
   onStateChanged: (callback) => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on("state:changed", listener);

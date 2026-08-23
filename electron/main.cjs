@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Menu, net, Notification, powerMonitor, prot
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const { calculatePrayerStreak } = require("./streak.cjs");
 
 const PRAYERS = ["Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"];
 const ADHAN_URL = "https://cdn.aladhan.com/audio/adhans/a9.mp3";
@@ -52,6 +53,11 @@ const defaultState = {
     onboardingComplete: false,
   },
   prayerLogs: {},
+  prayerStreak: {
+    current: 0,
+    best: 0,
+    breakAt: null,
+  },
   quran: {
     reciterId: null,
     moshafId: null,
@@ -79,6 +85,7 @@ function loadState() {
       settings: { ...cloneDefaultState().settings, ...(parsed.settings || {}) },
       quran: { ...cloneDefaultState().quran, ...(parsed.quran || {}) },
       prayerLogs: parsed.prayerLogs || {},
+      prayerStreak: { ...cloneDefaultState().prayerStreak, ...(parsed.prayerStreak || {}) },
     };
   } catch {
     return cloneDefaultState();
@@ -456,12 +463,29 @@ async function fetchPrayerDays(settings) {
   return Promise.all([fetchPrayerDay(today, settings), fetchPrayerDay(tomorrow, settings)]);
 }
 
+async function fetchScheduleDays(settings) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  const tomorrow = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  tomorrow.setDate(today.getDate() + 1);
+  return Promise.all([
+    fetchPrayerDay(yesterday, settings),
+    fetchPrayerDay(today, settings),
+    fetchPrayerDay(tomorrow, settings),
+  ]);
+}
+
 async function refreshSchedule(force = false) {
   if (!state.settings.onboardingComplete) return;
   if (!force && Date.now() - lastScheduleRefresh < 15 * 60 * 1000) return;
   try {
-    schedule = await fetchPrayerDays(state.settings);
+    schedule = await fetchScheduleDays(state.settings);
     lastScheduleRefresh = Date.now();
+    if (updatePrayerStreak()) {
+      saveState();
+      broadcastState();
+    }
   } catch (error) {
     console.error("Unable to refresh prayer schedule", error);
   }
@@ -483,6 +507,26 @@ function prayerHasStarted(dateKey, prayer, now = Date.now()) {
   return dateKey < localDateKey();
 }
 
+function updatePrayerStreak(now = Date.now()) {
+  const next = calculatePrayerStreak({
+    prayerLogs: state.prayerLogs,
+    previous: state.prayerStreak,
+    schedule,
+    now,
+  });
+  const changed = next.current !== state.prayerStreak.current
+    || next.best !== state.prayerStreak.best
+    || next.breakAt !== state.prayerStreak.breakAt;
+  state.prayerStreak = next;
+  return changed;
+}
+
+function celebratePrayerStreak(count) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("streak:celebrate", { count });
+  }
+}
+
 function playAlertInRenderer(mode) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("alerts:play", mode);
@@ -493,6 +537,8 @@ function togglePrayerLog(dateKey, prayer, forcePrayed = null) {
   const existing = state.prayerLogs[dateKey]?.[prayer]?.prayed === true;
   const prayed = forcePrayed == null ? !existing : forcePrayed;
   if (prayed && !prayerHasStarted(dateKey, prayer)) throw new Error("Prayer time has not arrived yet");
+  updatePrayerStreak();
+  const previousStreak = state.prayerStreak.current;
   state.prayerLogs[dateKey] = state.prayerLogs[dateKey] || {};
   if (prayed) {
     state.prayerLogs[dateKey][prayer] = { prayed: true, loggedAt: new Date().toISOString() };
@@ -500,8 +546,12 @@ function togglePrayerLog(dateKey, prayer, forcePrayed = null) {
     delete state.prayerLogs[dateKey][prayer];
     if (Object.keys(state.prayerLogs[dateKey]).length === 0) delete state.prayerLogs[dateKey];
   }
+  updatePrayerStreak();
   saveState();
   broadcastState();
+  if (prayed && state.prayerStreak.current > previousStreak) {
+    celebratePrayerStreak(state.prayerStreak.current);
+  }
   return state;
 }
 
@@ -583,6 +633,10 @@ async function scheduleTick() {
   await refreshSchedule();
   if (schedule.length === 0) return;
   const now = Date.now();
+  if (updatePrayerStreak(now)) {
+    saveState();
+    broadcastState();
+  }
   const previousTick = lastTickAt;
   lastTickAt = now;
   const flattened = schedule.flatMap((day) => day.timings.map((prayer) => ({ day, prayer })));

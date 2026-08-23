@@ -39,6 +39,10 @@ export function History({ state, setState, language, days }: { state: AppState; 
           <h1>{t("historyTitle")}</h1>
           <p>{t("historyBody")}</p>
         </div>
+        <div className="prayer-streak" title={t("prayerStreakLabel", { count: state.prayerStreak.current })} aria-label={t("prayerStreakLabel", { count: state.prayerStreak.current })}>
+          <span aria-hidden="true">🔥</span>
+          <strong>{state.prayerStreak.current}</strong>
+        </div>
       </header>
 
       <section className="week-summary">
