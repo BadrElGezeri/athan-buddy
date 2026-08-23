@@ -1,0 +1,23 @@
+node_modules/
+dist/
+release/
+artifacts/
+coverage/
+*.log
+.vite/
+.pnpm-store/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+
+# Local configuration and user data
+.env
+.env.*
+!.env.example
+athan-buddy-data.json
+
+# Signing credentials and private keys must never be committed
+*.pfx
+*.p12
+*.pem
+*.key

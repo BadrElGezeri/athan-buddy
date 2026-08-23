@@ -1,0 +1,44 @@
+{
+  "name": "athan-buddy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A private Windows prayer companion with Quran streaming.",
+  "main": "electron/main.cjs",
+  "author": "Badr Elgezeri",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BadrElGezeri/athan-buddy.git"
+  },
+  "homepage": "https://github.com/BadrElGezeri/athan-buddy",
+  "bugs": "https://github.com/BadrElGezeri/athan-buddy/issues",
+  "license": "MIT",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build": "pnpm typecheck && vite build",
+    "preview": "vite preview",
+    "app:dir": "pnpm build && electron-builder --config electron-builder.config.cjs --dir",
+    "dist:win": "pnpm build && electron-builder --config electron-builder.config.cjs --win nsis --x64",
+    "release:win": "node scripts/validate-release.cjs && electron-builder --config electron-builder.config.cjs --win nsis --x64 --publish always",
+    "typecheck": "tsc -p tsconfig.app.json --pretty false && tsc -p tsconfig.node.json --pretty false"
+  },
+  "dependencies": {
+    "@fontsource-variable/manrope": "^5.2.8",
+    "@fontsource-variable/noto-sans-arabic": "^5.2.8",
+    "@phosphor-icons/react": "^2.1.10",
+    "electron-updater": "^6.8.9",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.7",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "wait-on": "^9.0.1"
+  }
+}
